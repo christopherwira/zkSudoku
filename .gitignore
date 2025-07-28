@@ -1,0 +1,29 @@
+# --- General ---
+.DS_Store
+.env
+*.log
+
+# --- Node / Hardhat ---
+/hardhat/node_modules
+/hardhat/cache
+/hardhat/artifacts
+/hardhat/coverage
+/hardhat/coverage.json
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+*.egg-info/
+
+# --- VSCode ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# --- Docker ---
+**/node_modules

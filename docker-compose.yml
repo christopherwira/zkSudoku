@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  devcontainer:
+    build:
+      context: .devcontainer
+      dockerfile: Dockerfile
+    volumes:
+      - .:/workspaces/zkSudoku:cached
+    command: sleep infinity
+    depends_on:
+      - hardhat
+  hardhat:
+    build:
+      context: ./hardhat
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+    command: npx hardhat node --hostname 0.0.0.0 --port 8545
+    ports:
+      - 8545:8545
