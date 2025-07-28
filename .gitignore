@@ -27,3 +27,6 @@ venv/
 
 # --- Docker ---
 **/node_modules
+
+# --- ZoKrates ---
+zokrates/temp

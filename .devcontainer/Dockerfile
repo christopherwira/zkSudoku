@@ -14,7 +14,9 @@ RUN python -m pip install -r requirements.txt
 RUN apt-get update && apt-get install -y curl && \
     # Run the installer script, which will install to /root/.zokrates
     curl -LSfs get.zokrat.es | sh && \
-    # As root, move the compiled binary to a shared location in the system's PATH
-    mv /root/.zokrates/bin/zokrates /usr/local/bin/zokrates && \
-    # Clean up the original installation directory to save space
-    rm -rf /root/.zokrates
+    # Move the entire installation to a shared location for optional software
+    mv /root/.zokrates /opt/zokrates
+
+# Use the ENV instruction to permanently add the ZoKrates bin directory to the PATH.
+# This makes the 'zokrates' command available to all users.
+ENV PATH="/opt/zokrates/bin:${PATH}"
