@@ -4,6 +4,14 @@ import os
 import json
 from typing import List, Dict, Tuple
 
+def _snake_to_pascal_case(snake_case_string: str) -> str:
+    """Converts a snake_case string to PascalCase.
+    
+    Example: 'general_zksudoku' -> 'GeneralZksudoku'
+    """
+    parts = snake_case_string.split('_')
+    return "".join(part.capitalize() for part in parts)
+
 # --- Centralized Path Constants ---
 ZOKRATES_DIRECTORY_PATH = 'zokrates'
 SOURCE_DIRECTORY_PATH = 'src'
@@ -63,7 +71,7 @@ def run_command(command: str, byte_input: bytes = None) -> str:
             print(e.stderr.strip())
         raise e
 
-def compile_zokrates_script(zokrates_file_name: str) -> int:
+def compile_zokrates_script(zokrates_file_name: str, debug: bool = False) -> int:
     """Compiles a .zok file and returns the circuit size."""
     paths = _get_zokrates_paths(zokrates_file_name)
     
@@ -77,8 +85,9 @@ def compile_zokrates_script(zokrates_file_name: str) -> int:
         f"-r {paths['r1cs_file']} "
         f"--stdlib-path {ZOKRATES_STDLIB_DIRECTORY_PATH} "
         f"-i {paths['source_file']}"
+        f"{' --debug' if debug else ''}"
     )
-    
+
     stdout_string = run_command(zokrates_compile_command)
     circuit_size = int(stdout_string.split(' ')[-1].replace('\n',''))
     return circuit_size
@@ -154,3 +163,21 @@ def verify_proof(zokrates_file_name: str) -> bool:
     except subprocess.CalledProcessError:
         # The run_command function already prints detailed errors
         return False
+    
+def generate_verification_contract_from_verification_key(zokrates_file_name: str):
+    """Generate the verification contract using the verification key."""
+    paths = _get_zokrates_paths(zokrates_file_name)
+    generated_dir = os.path.join(CONTRACT_DIRECTORY_PATH, "generated")
+    os.makedirs(generated_dir, exist_ok=True)
+
+    pascal_case_name = _snake_to_pascal_case(zokrates_file_name)
+    contract_name = f"{pascal_case_name}Verifier.sol"
+    verifier_contract_path = os.path.join(generated_dir, contract_name)
+
+    zokrates_verify_command = (
+        f"zokrates export-verifier "
+        f"-i {paths['verification_key_file']} "
+        f"-o {verifier_contract_path}"
+    )
+    run_command(zokrates_verify_command)
+    

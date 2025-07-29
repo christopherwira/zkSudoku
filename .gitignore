@@ -30,3 +30,4 @@ venv/
 
 # --- ZoKrates ---
 zokrates/temp
+contracts/generated
