@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+// Import the specific, named verifier from the generated directory.
+// This file must be present in `contracts/generated/` for this to compile.
+import "./generated/ZksudokuVerifier.sol";
+
+/**
+ * @title SudokuRace
+ * @author Your Name
+ * @notice This contract manages a prize pool for the first 3 users who can
+ * prove they have solved a specific Sudoku puzzle using a ZK-SNARK.
+ * It inherits the proof verification logic from the auto-generated ZksudokuVerifier.
+ */
+contract SudokuRace is Verifier {
+    // --- State Variables ---
+
+    // The prize amount for each winner (e.g., 0.1 ETH).
+    uint256 public constant PRIZE_AMOUNT = 0.1 ether;
+
+    // The total number of winners allowed.
+    uint256 public constant MAX_WINNERS = 3;
+
+    // An array to store the addresses of the winners.
+    address[MAX_WINNERS] public winners;
+
+    // A counter for the number of winners so far.
+    uint8 public winnerCount;
+
+    // A mapping to efficiently check if an address has already won.
+    mapping(address => bool) public hasWon;
+
+    // --- Events ---
+    event NewWinner(address indexed winner, uint256 prize);
+
+    /**
+     * @dev The constructor is payable to receive the initial prize pool funding.
+     * The deployer must send at least `PRIZE_AMOUNT * MAX_WINNERS` ETH upon deployment.
+     */
+    constructor() payable {
+        require(
+            msg.value >= PRIZE_AMOUNT * MAX_WINNERS,
+            "Must fund the contract with enough ETH for all prizes"
+        );
+    }
+
+    /**
+     * @notice Allows a user to submit a ZK-SNARK proof to claim a prize.
+     * @param proof The proof is a struct containing 2 G1 and 1 G2 points.
+     * @param input The public inputs for the proof (in this case, the board hash).
+     */
+    function submitSolution(
+        Proof memory proof, 
+        uint[82] memory input
+    ) public {
+        // --- Pre-flight Checks ---
+        require(winnerCount < MAX_WINNERS, "The race is already over");
+        require(!hasWon[msg.sender], "You have already won a prize");
+
+        // --- Proof Verification ---
+        // Call the verifyTx function inherited from ZksudokuVerifier.
+        // This is the core of the privacy-preserving logic.
+        bool proofIsValid = verifyTx(proof, input);
+        require(proofIsValid, "The provided proof is not valid");
+
+        // --- State Updates & Prize Distribution ---
+        hasWon[msg.sender] = true;
+        winners[winnerCount] = msg.sender;
+        winnerCount++;
+
+        // Transfer the prize money to the winner.
+        (bool sent, ) = msg.sender.call{value: PRIZE_AMOUNT}("");
+        require(sent, "Failed to send prize ETH");
+
+        // Emit an event to log the new winner.
+        emit NewWinner(msg.sender, PRIZE_AMOUNT);
+    }
+
+    /**
+     * @notice A helper function to check the remaining balance of the contract.
+     */
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+}
