@@ -2,6 +2,7 @@ import subprocess
 import shlex
 import os
 from typing import List, Dict, Tuple
+from .paths import get_zokrates_paths, CONTRACT_DIR, ZOKRATES_STDLIB_PATH
 
 def _snake_to_pascal_case(snake_case_string: str) -> str:
     """Converts a snake_case string to PascalCase.
@@ -10,41 +11,6 @@ def _snake_to_pascal_case(snake_case_string: str) -> str:
     """
     parts = snake_case_string.split('_')
     return "".join(part.capitalize() for part in parts)
-
-# --- Centralized Path Constants ---
-ZOKRATES_DIRECTORY_PATH = 'zokrates'
-SOURCE_DIRECTORY_PATH = 'src'
-TEMP_DIRECTORY_PATH = 'temp'
-BUILD_DIRECTORY_PATH = 'builds'
-KEY_DIRECTORY_PATH = 'keys'
-PROOF_DIRECTORY_PATH = 'proofs'
-CONTRACT_DIRECTORY_PATH = 'contracts'
-ZOKRATES_STDLIB_DIRECTORY_PATH = '/opt/zokrates/stdlib/'
-
-def _get_zokrates_paths(file_name: str) -> Dict[str, str]:
-    """
-    A centralized helper function to generate all necessary paths for a ZoKrates file.
-    Using os.path.join is more robust than string concatenation.
-    """
-    base_temp_path = os.path.join(ZOKRATES_DIRECTORY_PATH, TEMP_DIRECTORY_PATH)
-    
-    paths = {
-        'source_file': os.path.join(ZOKRATES_DIRECTORY_PATH, SOURCE_DIRECTORY_PATH, f"{file_name}.zok"),
-        'build_dir': os.path.join(base_temp_path, BUILD_DIRECTORY_PATH, file_name),
-        'key_dir': os.path.join(base_temp_path, KEY_DIRECTORY_PATH, file_name),
-        'proof_dir': os.path.join(base_temp_path, PROOF_DIRECTORY_PATH, file_name),
-    }
-
-    # Add specific file paths based on the directory paths
-    paths['abi_file'] = os.path.join(paths['build_dir'], 'abi.json')
-    paths['out_file'] = os.path.join(paths['build_dir'], 'out')
-    paths['r1cs_file'] = os.path.join(paths['build_dir'], 'out.r1cs')
-    paths['witness_file'] = os.path.join(paths['proof_dir'], 'witness')
-    paths['proving_key_file'] = os.path.join(paths['key_dir'], 'proving.key')
-    paths['verification_key_file'] = os.path.join(paths['key_dir'], 'verification.key')
-    paths['proof_json_file'] = os.path.join(paths['proof_dir'], 'proof_output.json')
-    
-    return paths
 
 def run_command(command: str, byte_input: bytes = None) -> str:
     """A robust wrapper for running subprocess commands."""
@@ -72,7 +38,7 @@ def run_command(command: str, byte_input: bytes = None) -> str:
 
 def compile_zokrates_script(zokrates_file_name: str, debug: bool = False) -> int:
     """Compiles a .zok file and returns the circuit size."""
-    paths = _get_zokrates_paths(zokrates_file_name)
+    paths = get_zokrates_paths(zokrates_file_name)
     
     # Use os.makedirs for creating directories. It's safer than os.system.
     os.makedirs(paths['build_dir'], exist_ok=True)
@@ -82,7 +48,7 @@ def compile_zokrates_script(zokrates_file_name: str, debug: bool = False) -> int
         f"-s {paths['abi_file']} "
         f"-o {paths['out_file']} "
         f"-r {paths['r1cs_file']} "
-        f"--stdlib-path {ZOKRATES_STDLIB_DIRECTORY_PATH} "
+        f"--stdlib-path {ZOKRATES_STDLIB_PATH} "
         f"-i {paths['source_file']}"
         f"{' --debug' if debug else ''}"
     )
@@ -93,7 +59,7 @@ def compile_zokrates_script(zokrates_file_name: str, debug: bool = False) -> int
 
 def generate_proving_verification_key_with_trusted_setup(zokrates_file_name: str):
     """Generates the proving and verification keys."""
-    paths = _get_zokrates_paths(zokrates_file_name)
+    paths = get_zokrates_paths(zokrates_file_name)
     
     os.makedirs(paths['key_dir'], exist_ok=True)
     
@@ -108,7 +74,7 @@ def generate_proving_verification_key_with_trusted_setup(zokrates_file_name: str
 
 def check_keys_size(zokrates_file_name: str) -> Tuple[int, int]:
     """Checks and prints the size of the generated keys."""
-    paths = _get_zokrates_paths(zokrates_file_name)
+    paths = get_zokrates_paths(zokrates_file_name)
     
     pk_size = os.path.getsize(paths['proving_key_file'])
     vk_size = os.path.getsize(paths['verification_key_file'])
@@ -119,7 +85,7 @@ def check_keys_size(zokrates_file_name: str) -> Tuple[int, int]:
 
 def generate_proof_from_json_input(zokrates_file_name: str, zokrates_json_input: bytes):
     """Generates a witness and a proof based on user input."""
-    paths = _get_zokrates_paths(zokrates_file_name)
+    paths = get_zokrates_paths(zokrates_file_name)
 
     os.makedirs(paths['proof_dir'], exist_ok=True)
 
@@ -148,7 +114,7 @@ def generate_proof_from_json_input(zokrates_file_name: str, zokrates_json_input:
 
 def verify_proof(zokrates_file_name: str) -> bool:
     """Verifies a generated proof using the verification key."""
-    paths = _get_zokrates_paths(zokrates_file_name)
+    paths = get_zokrates_paths(zokrates_file_name)
     zokrates_verify_command = (
         f"zokrates verify "
         f"-v {paths['verification_key_file']} "
@@ -165,8 +131,8 @@ def verify_proof(zokrates_file_name: str) -> bool:
     
 def generate_verification_contract_from_verification_key(zokrates_file_name: str):
     """Generate the verification contract using the verification key."""
-    paths = _get_zokrates_paths(zokrates_file_name)
-    generated_dir = os.path.join(CONTRACT_DIRECTORY_PATH, "generated")
+    paths = get_zokrates_paths(zokrates_file_name)
+    generated_dir = os.path.join(CONTRACT_DIR, "generated")
     os.makedirs(generated_dir, exist_ok=True)
 
     pascal_case_name = _snake_to_pascal_case(zokrates_file_name)

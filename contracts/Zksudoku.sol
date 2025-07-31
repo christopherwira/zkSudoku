@@ -6,13 +6,13 @@ pragma solidity ^0.8.19;
 import "./generated/ZksudokuVerifier.sol";
 
 /**
- * @title SudokuRace
- * @author Your Name
+ * @title Zksudoku
+ * @author Christopher Wiraatmaja
  * @notice This contract manages a prize pool for the first 3 users who can
  * prove they have solved a specific Sudoku puzzle using a ZK-SNARK.
  * It inherits the proof verification logic from the auto-generated ZksudokuVerifier.
  */
-contract SudokuRace is Verifier {
+contract Zksudoku is Verifier {
     // --- State Variables ---
 
     // The Sudoku problem that are tied to this smart contract
