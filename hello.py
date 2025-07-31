@@ -1,4 +1,4 @@
-from utils import zokrates_utils
+from utils import zokrates_utils,web3_utils
 import json
 
 circuit_size = zokrates_utils.compile_zokrates_script('zksudoku')
@@ -34,3 +34,5 @@ zokrates_utils.generate_proof_from_json_input(
     'zksudoku', json.dumps(zksudoku_string_dict))
 print(zokrates_utils.verify_proof('zksudoku'))
 zokrates_utils.generate_verification_contract_from_verification_key('zksudoku')
+w3 = web3_utils.create_HTTP_provider('https:hardhat:8545')
+print(web3_utils.compile_and_deploy_authentication_contract('zksudoku', w3))

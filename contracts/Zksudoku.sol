@@ -15,6 +15,9 @@ import "./generated/ZksudokuVerifier.sol";
 contract SudokuRace is Verifier {
     // --- State Variables ---
 
+    // The Sudoku problem that are tied to this smart contract
+    uint[81] sudoku_problem;
+
     // The prize amount for each winner (e.g., 0.1 ETH).
     uint256 public constant PRIZE_AMOUNT = 0.1 ether;
 
@@ -37,11 +40,12 @@ contract SudokuRace is Verifier {
      * @dev The constructor is payable to receive the initial prize pool funding.
      * The deployer must send at least `PRIZE_AMOUNT * MAX_WINNERS` ETH upon deployment.
      */
-    constructor() payable {
+    constructor(uint[81] memory _sudoku_problem) payable {
         require(
             msg.value >= PRIZE_AMOUNT * MAX_WINNERS,
             "Must fund the contract with enough ETH for all prizes"
         );
+        sudoku_problem = _sudoku_problem;
     }
 
     /**
@@ -58,8 +62,10 @@ contract SudokuRace is Verifier {
         require(!hasWon[msg.sender], "You have already won a prize");
 
         // --- Proof Verification ---
+        // Check that the proof public input is the same as our proposed problem
         // Call the verifyTx function inherited from ZksudokuVerifier.
         // This is the core of the privacy-preserving logic.
+        require(_compareBoards(sudoku_problem, input), "The provided input instance is not valid");
         bool proofIsValid = verifyTx(proof, input);
         require(proofIsValid, "The provided proof is not valid");
 
@@ -81,5 +87,14 @@ contract SudokuRace is Verifier {
      */
     function getBalance() public view returns (uint256) {
         return address(this).balance;
+    }
+
+    function _compareBoards(uint256[81] memory _sudoku_problem, uint256[82] memory _input) internal pure returns (bool) {
+        for (uint i = 0; i < 81; i++) {
+            if (_sudoku_problem[i] != _input[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }
