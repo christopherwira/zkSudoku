@@ -1,5 +1,6 @@
 import os
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
+from decimal import Decimal
 
 from web3 import Web3
 from web3.contract import Contract
@@ -90,21 +91,29 @@ def create_http_provider(http_provider_url: str) -> Web3:
     """Creates and returns a Web3 HTTP provider instance."""
     return Web3(Web3.HTTPProvider(http_provider_url))
 
-def print_account_balance(web3_instance: Web3, account_index: int = 0):
+def get_account_balance(
+    web3_instance: Web3, 
+    account_index: int = 0
+) -> Optional[Decimal]:
     """
-    Fetches and prints the balance of a specific account from the provider.
+    Fetches and returns the balance of a specific account in Ether.
 
     Args:
         web3_instance: The connected Web3 instance.
         account_index: The index of the account in the provider's list 
                        (defaults to the first account).
+
+    Returns:
+        The account balance as a Decimal object in Ether, or None if an error occurs.
     """
     try:
         account = web3_instance.eth.accounts[account_index]
         balance_wei = web3_instance.eth.get_balance(account)
         balance_eth = Web3.from_wei(balance_wei, 'ether')
-        print(f"Balance of account {account_index} ({account}): {balance_eth} ETH")
+        return balance_eth
     except IndexError:
         print(f"Error: Account with index {account_index} not found.")
+        return None
     except Exception as e:
         print(f"An error occurred: {e}")
+        return None
