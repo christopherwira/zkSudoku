@@ -55,7 +55,7 @@ contract Zksudoku is Verifier {
      */
     function submitSolution(
         Proof memory proof, 
-        uint[82] memory input
+        uint[81] memory input
     ) public {
         // --- Pre-flight Checks ---
         require(winnerCount < MAX_WINNERS, "The race is already over");
@@ -89,7 +89,7 @@ contract Zksudoku is Verifier {
         return address(this).balance;
     }
 
-    function _compareBoards(uint256[81] memory _sudoku_problem, uint256[82] memory _input) internal pure returns (bool) {
+    function _compareBoards(uint256[81] memory _sudoku_problem, uint256[81] memory _input) internal pure returns (bool) {
         for (uint i = 0; i < 81; i++) {
             if (_sudoku_problem[i] != _input[i]) {
                 return false;

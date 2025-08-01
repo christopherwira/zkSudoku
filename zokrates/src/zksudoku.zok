@@ -3,7 +3,7 @@ import "utils/casts/u32_to_field" as u32_to_field;
 // This function defines the constraints for a valid 9x9 Sudoku solution.
 // The 'solution' is the user's private input (their complete 9x9 grid).
 // The 'board' is the public input (the initial puzzle with 0s for empty cells).
-def main(private field[9][9] solution, public field[9][9] board) -> bool {
+def main(private field[9][9] solution, public field[9][9] board) {
 
     // --- Constraint 1: Each cell value must be between 1 and 9 ---
     // We use a common ZKP trick: for a value 'v', the expression
@@ -57,7 +57,4 @@ def main(private field[9][9] solution, public field[9][9] board) -> bool {
             assert(box_sum == 45);
         }
     }
-
-    // If all constraints are met, the proof is valid.
-    return true;
 }
