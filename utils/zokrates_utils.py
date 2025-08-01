@@ -1,6 +1,7 @@
 import subprocess
 import shlex
 import os
+import json
 from typing import List, Dict, Tuple
 from .paths import get_zokrates_paths, CONTRACT_DIR, ZOKRATES_STDLIB_PATH
 
@@ -145,4 +146,47 @@ def generate_verification_contract_from_verification_key(zokrates_file_name: str
         f"-o {verifier_contract_path}"
     )
     run_command(zokrates_verify_command)
+
+def parse_proof(zokrates_file_name: str) -> Tuple[Tuple, List[int]]:
+    """
+    Parses the proof_output.json file for a given circuit.
+
+    This function reads the generated JSON proof and formats the proof components
+    (A, B, C) and the public inputs into a structure that can be passed
+    directly to a web3.py contract function.
+
+    Args:
+        zokrates_file_name: The base name of the .zok file (e.g., "zksudoku").
+
+    Returns:
+        A tuple containing:
+        - A tuple with the formatted proof components (a, b, c) for web3.py.
+        - A list of integers representing the public inputs.
+    """
+    paths = get_zokrates_paths(zokrates_file_name)
+    proof_json_path = paths['proof_json_file']
+
+    if not os.path.exists(proof_json_path):
+        raise FileNotFoundError(f"Proof file not found at: {proof_json_path}")
+
+    with open(proof_json_path, 'r') as f:
+        proof_data = json.load(f)
+
+    # Parse G1 points (a and c), converting hex strings to integers
+    proof_a = [int(x, 16) for x in proof_data['proof']['a']]
+    proof_c = [int(x, 16) for x in proof_data['proof']['c']]
+
+    # Parse G2 point (b), which is a nested list of hex strings
+    proof_b = [
+        [int(x, 16) for x in proof_data['proof']['b'][0]],
+        [int(x, 16) for x in proof_data['proof']['b'][1]]
+    ]
+    
+    # Format the proof into the tuple structure expected by web3.py for structs
+    formatted_proof = (proof_a, proof_b, proof_c)
+
+    # Parse the public inputs, converting hex strings to integers
+    inputs = [int(x, 16) for x in proof_data['inputs']]
+
+    return (formatted_proof, inputs)
     

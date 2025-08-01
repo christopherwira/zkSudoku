@@ -18,8 +18,8 @@ contract Zksudoku is Verifier {
     // The Sudoku problem that are tied to this smart contract
     uint[81] sudoku_problem;
 
-    // The prize amount for each winner (e.g., 0.1 ETH).
-    uint256 public constant PRIZE_AMOUNT = 0.1 ether;
+    // The prize amount for each winner (e.g., 10 ETH).
+    uint256 public constant PRIZE_AMOUNT = 10 ether;
 
     // The total number of winners allowed.
     uint256 public constant MAX_WINNERS = 3;
