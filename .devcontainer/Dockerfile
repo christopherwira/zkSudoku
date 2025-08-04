@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
+# Set Python Path to our root directory
+ENV PYTHONPATH="${PYTHONPATH}:/workspaces/zkSudoku"
+
 # Install pip requirements
 COPY requirements.txt .
 RUN python -m pip install -r requirements.txt

@@ -58,8 +58,7 @@ def compile_and_deploy(
 
     compiled_sol = compile_files([source_file_path], output_values=["abi", "bin"])
     
-    relative_path = os.path.relpath(source_file_path, PROJECT_ROOT)
-    contract_key = f"{relative_path}:{contract_name}"
+    contract_key = f"{paths['source_file']}:{contract_name}"
     compiled_output = compiled_sol[contract_key]
 
     # 2. Deploy the compiled contract
