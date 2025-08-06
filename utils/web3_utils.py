@@ -3,6 +3,7 @@ from typing import Tuple, Dict, Any, Optional
 from decimal import Decimal
 
 from web3 import Web3
+from web3.providers.persistent import WebSocketProvider
 from web3.contract import Contract
 from web3.types import TxReceipt
 from solcx import install_solc, compile_files, set_solc_version_pragma
@@ -57,8 +58,7 @@ def compile_and_deploy(
         raise FileNotFoundError(f"Contract source file not found at: {source_file_path}")
 
     compiled_sol = compile_files([source_file_path], output_values=["abi", "bin"])
-    
-    contract_key = f"{paths['source_file']}:{contract_name}"
+    contract_key = next(iter(compiled_sol)) # Take the first key in the compiled_sol dictionary
     compiled_output = compiled_sol[contract_key]
 
     # 2. Deploy the compiled contract
@@ -89,6 +89,9 @@ def compile_and_deploy(
 def create_http_provider(http_provider_url: str) -> Web3:
     """Creates and returns a Web3 HTTP provider instance."""
     return Web3(Web3.HTTPProvider(http_provider_url))
+
+def create_websocket_provider(websocket_provider_uri: str) -> WebSocketProvider:
+    return WebSocketProvider(websocket_provider_uri)
 
 def get_account_balance(
     web3_instance: Web3, 
