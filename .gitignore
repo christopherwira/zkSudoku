@@ -31,3 +31,4 @@ venv/
 # --- ZoKrates ---
 zokrates/temp
 contracts/generated
+contracts/artifacts

@@ -1,4 +1,4 @@
-import os
+import os, json
 from typing import Tuple, Dict, Any, Optional
 from decimal import Decimal
 
@@ -25,6 +25,19 @@ def _ensure_solc_installed(version: str = '0.8.30'):
         install_solc(version)
         set_solc_version_pragma(f'pragma solidity ^{version.rsplit(".", 1)[0]};')
         _solc_installed = True
+
+def _save_contract_artifacts(contract_name: str, compiled_output: dict, paths: dict):
+    """Saves the ABI and bytecode to the artifacts directory."""
+    artifacts_dir = os.path.dirname(paths['abi_file'])
+    os.makedirs(artifacts_dir, exist_ok=True)
+
+    # Save the ABI as a JSON file
+    with open(paths['abi_file'], 'w') as f:
+        json.dump(compiled_output['abi'], f, indent=2)
+
+    # Save the bytecode (binary)
+    with open(paths['bin_file'], 'w') as f:
+        f.write(compiled_output['bin'])
 
 
 def compile_and_deploy(
@@ -61,6 +74,8 @@ def compile_and_deploy(
     contract_key = next(iter(compiled_sol)) # Take the first key in the compiled_sol dictionary
     compiled_output = compiled_sol[contract_key]
 
+    _save_contract_artifacts(contract_name, compiled_output, paths)
+
     # 2. Deploy the compiled contract
     contract = web3_instance.eth.contract(
         abi=compiled_output['abi'],
@@ -80,7 +95,6 @@ def compile_and_deploy(
         address=tx_receipt.contractAddress,
         abi=compiled_output['abi']
     )
-    
     print(f"Contract '{contract_name}' deployed successfully at address: {tx_receipt.contractAddress}")
     
     return (deployed_contract, tx_receipt, compiled_output)
@@ -90,8 +104,11 @@ def create_http_provider(http_provider_url: str) -> Web3:
     """Creates and returns a Web3 HTTP provider instance."""
     return Web3(Web3.HTTPProvider(http_provider_url))
 
-def create_websocket_provider(websocket_provider_uri: str) -> WebSocketProvider:
-    return WebSocketProvider(websocket_provider_uri)
+def create_contract_instance(contract_name: str, contract_address: str, web3_instance: Web3) -> Contract:
+    paths = get_contract_paths(contract_name)
+    with open(paths['abi_file'], 'r') as f:
+        contract_abi = json.load(f)
+    return web3_instance.eth.contract(abi=contract_abi, address=contract_address)
 
 def get_account_balance(
     web3_instance: Web3, 

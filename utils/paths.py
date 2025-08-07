@@ -41,7 +41,10 @@ def get_zokrates_paths(file_name: str) -> Dict[str, str]:
 def get_contract_paths(contract_name: str) -> Dict[str, str]:
     """A centralized function for contract-related paths."""
     generated_dir = os.path.join(CONTRACT_DIR, "generated")
+    artifacts_dir = os.path.join(CONTRACT_DIR, "artifacts")
     return {
         'source_file': os.path.join(CONTRACT_DIR, f"{contract_name}.sol"),
-        'verifier_file': os.path.join(generated_dir, f"{contract_name}Verifier.sol")
+        'verifier_file': os.path.join(generated_dir, f"{contract_name}Verifier.sol"),
+        'abi_file': os.path.join(artifacts_dir, f"{contract_name}.abi"),
+        'bin_file': os.path.join(artifacts_dir, f"{contract_name}.bin"),
     }

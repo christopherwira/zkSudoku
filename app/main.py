@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from typing import List
+from utils import zokrates_utils, web3_utils
+import json
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -24,7 +26,7 @@ SUDOKU_PROBLEM = [
     [0, 0, 0, 0, 8, 0, 0, 7, 9]
 ]
 
-# --- Helper Functions & Styling ---
+# --- Helper Functions ---
 
 def get_solution_grid() -> List[List[int]]:
     """
@@ -36,116 +38,118 @@ def get_solution_grid() -> List[List[int]]:
         st.session_state.solution_grid = [row[:] for row in SUDOKU_PROBLEM]
     return st.session_state.solution_grid
 
-def update_cell(row: int, col: int, value: str):
-    """Updates a single cell in the session state's solution grid."""
-    try:
-        # Convert input to integer, handle empty string as 0
-        num_value = int(value) if value else 0
-        if 0 <= num_value <= 9:
-            st.session_state.solution_grid[row][col] = num_value
-        else:
-            st.warning("Please enter a number between 1 and 9.")
-    except ValueError:
-        st.warning("Invalid input. Please enter a number.")
-
-def style_sudoku_grid(df: pd.DataFrame):
-    """Applies styling to the Sudoku grid for better visualization."""
+# --- THE FIX ---
+# This callback correctly handles the dictionary of edits provided by st.data_editor's state.
+def update_session_state():
+    """Applies edits from the data_editor back to the main solution_grid in session state."""
+    # st.session_state.sudoku_editor contains a dictionary of edits, not a DataFrame.
+    edits = st.session_state.sudoku_editor
     
-    def cell_style(val, row_idx, col_idx):
-        """Determines the CSS style for a single cell based on its value and position."""
-        is_clue = SUDOKU_PROBLEM[row_idx][col_idx] != 0
-        
-        style = 'color: #1E293B; background-color: #F8FAFC;' # Default for user input
-        if is_clue:
-            style = 'color: #475569; background-color: #E2E8F0; font-weight: bold;' # Style for clues
-        
-        # Add thicker borders for 3x3 subgrids
-        if (row_idx + 1) % 3 == 0 and row_idx != 8:
-            style += ' border-bottom: 2px solid #94A3B8;'
-        if (col_idx + 1) % 3 == 0 and col_idx != 8:
-            style += ' border-right: 2px solid #94A3B8;'
-            
-        return style
+    # The grid to modify is our master copy in the session state.
+    grid_to_update = st.session_state.solution_grid
 
-    def apply_styles(df_to_style):
-        """Applies the cell_style function to the entire DataFrame."""
-        styler_df = pd.DataFrame('', index=df_to_style.index, columns=df_to_style.columns)
-        for r_idx, row in enumerate(df_to_style.itertuples(index=False)):
-            for c_idx, val in enumerate(row):
-                styler_df.iloc[r_idx, c_idx] = cell_style(val, r_idx, c_idx)
-        return styler_df
-
-    # --- THE FIX ---
-    # Use the Styler's `format` method to display 0s as empty strings,
-    # without changing the underlying integer data. Then, apply the styles.
-    return df.style.format(lambda val: '' if val == 0 else val).apply(apply_styles, axis=None)
+    # Apply any edits the user has made by iterating through the edits dictionary.
+    for row, changed_cols in edits.get("edited_rows", {}).items():
+        for col_str, new_value in changed_cols.items():
+            col = int(col_str)
+            # Ensure the new value is an integer, defaulting to 0 if empty/None.
+            grid_to_update[row][col] = int(new_value or 0)
 
 # --- Main Application UI ---
 
 st.title("🧩 ZK-Sudoku Race")
 st.markdown("Prove you've solved the Sudoku to win a prize from the smart contract!")
+st.session_state.web3_instance = web3_utils.create_http_provider('http://hardhat:8545')
 
 # --- Main Layout ---
 col1, col2 = st.columns([2, 1]) # Create a 2/3 and 1/3 column layout
 
 with col1:
     st.header("The Puzzle")
-    
-    # Create a container for the grid
-    grid_container = st.container()
+    st.write("Click directly on the white cells to enter your solution.")
 
-    # Display the Sudoku grid using a DataFrame for easy styling
+    # Convert the current solution grid to a DataFrame for the editor
     solution = get_solution_grid()
-    # Keep the DataFrame with integer types (0 for empty)
-    df = pd.DataFrame(solution)
     
-    # Apply custom styling to the DataFrame
-    styled_grid = style_sudoku_grid(df)
-    grid_container.dataframe(styled_grid, use_container_width=True, height=500)
+    display_list = [[num if num != 0 else None for num in row] for row in solution]
+    df_display = pd.DataFrame(display_list)
+
+    # Create a boolean DataFrame to disable editing of the clue cells
+
+    # --- THE NEW EDITABLE GRID ---
+    # Use st.data_editor to create an interactive, editable grid.
+    st.data_editor(
+        df_display,
+        use_container_width=True,
+        height=500,
+        key="sudoku_editor",
+        # Use the on_change callback to reliably save edits.
+        on_change=update_session_state
+    )
 
 with col2:
-    st.header("Your Move")
+    st.header("Your Status")
 
-    # --- User Input Section ---
-    with st.form("input_form"):
-        st.write("Enter a number (1-9) into an empty cell.")
-        
-        # Use Streamlit's columns for a neat layout
-        input_col1, input_col2, input_col3 = st.columns(3)
-        
-        with input_col1:
-            row = st.number_input("Row", min_value=1, max_value=9, step=1)
-        with input_col2:
-            col = st.number_input("Column", min_value=1, max_value=9, step=1)
-        with input_col3:
-            val = st.text_input("Value", max_chars=1)
-
-        update_button = st.form_submit_button("Update Cell")
-
-        if update_button:
-            # Adjust for 0-based indexing
-            row_idx, col_idx = row - 1, col - 1
-            if SUDOKU_PROBLEM[row_idx][col_idx] == 0:
-                update_cell(row_idx, col_idx, val)
-                st.rerun() # Rerun the script to update the displayed grid
-            else:
-                st.error("This cell is a clue and cannot be changed.")
+    # --- Display Winners & Contract Info (Placeholder) ---
+    st.subheader("🏆 Winners")
+    st.text("1. 0x123...abc (Still open!)")
+    st.text("2. 0x456...def (Still open!)")
+    st.text("3. 0x789...ghi (Still open!)")
 
     st.divider()
 
     # --- Submission Section ---
     st.subheader("Submit Your Solution")
+    st.text_input("Contract Address", key="contract_address")
+    st.text_input("Account Index", key="account_index")
+    
     if st.button("Generate Proof & Submit to Contract", type="primary"):
         solution_grid = get_solution_grid()
         
-        st.write("Current Solution Grid:")
+        st.write("Submitting the following solution:")
+        # Display the final solution for confirmation
         st.json(solution_grid)
         
+        
         with st.spinner("Generating proof... this may take a moment."):
-            print(solution_grid)
             # --- TODO: INTEGRATION POINT ---
-            # 1. Call your zokrates_utils to generate the proof using the `solution_grid`.
-            # 2. Call your web3_utils to parse the proof and call the smart contract.
-            # 3. Handle the success or failure response.
+            # 1. Add a check here to verify the solution is complete and valid first.
+            # 2. Call your zokrates_utils to generate the proof using the `solution_grid`.
+            # 3. Call your web3_utils to parse the proof and call the smart contract.
+            # 4. Handle the success or failure response.
+            zksudoku_dict = [
+                [
+                    [5, 3, 4, 6, 7, 8, 9, 1, 2],
+                    [6, 7, 2, 1, 9, 5, 3, 4, 8],
+                    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+                    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+                    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+                    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+                    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+                    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+                    [3, 4, 5, 2, 8, 6, 1, 7, 9]
+                ],
+                [
+                    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+                    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+                    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+                    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+                    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+                    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+                    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+                    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+                    [0, 0, 0, 0, 8, 0, 0, 7, 9]
+                ]]
+            zksudoku_string_dict = [[[str(num) for num in row] for row in grid] for grid in zksudoku_dict]
+            zokrates_utils.generate_proof_from_json_input('zksudoku', json.dumps(zksudoku_string_dict))
+            w3 = st.session_state.web3_instance
+            contract_instance = web3_utils.create_contract_instance('zksudoku', st.session_state.contract_address, w3)
+            print(contract_instance)
+            (proof, inputs) = zokrates_utils.parse_proof('zksudoku')
+            account_index = int(st.session_state.account_index)
+            tx_hash = contract_instance.functions.submitSolution(proof, inputs).transact({"from":w3.eth.accounts[account_index]})
+            submit_tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+            st.text(str(submit_tx_receipt))
             st.success("Proof generated and transaction submitted successfully! (Placeholder)")
             # st.error("Proof verification failed! (Placeholder)")
+

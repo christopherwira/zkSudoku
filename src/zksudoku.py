@@ -1,5 +1,6 @@
 from utils import zokrates_utils,web3_utils
 import json
+from web3.exceptions import ContractLogicError
 
 circuit_size = zokrates_utils.compile_zokrates_script('zksudoku')
 print(circuit_size)
@@ -38,6 +39,6 @@ w3 = web3_utils.create_http_provider('http://hardhat:8545')
 prize_pool_eth = w3.to_wei(30, 'ether')
 (contract, tx_receipt, _) = web3_utils.compile_and_deploy(w3, 'zksudoku'.capitalize(), [num for row in zksudoku_dict[1] for num in row], value=prize_pool_eth)
 (proof, inputs) = zokrates_utils.parse_proof('zksudoku')
-tx_hash = contract.functions.submitSolution(proof, inputs).transact({"from":w3.eth.accounts[1]})
-tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-print(web3_utils.get_account_balance(w3, 1))
+tx_hash = contract.functions.submitSolution(proof, inputs).transact({"from":w3.eth.accounts[0]})
+submit_tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+print(web3_utils.get_account_balance(w3, 0))
