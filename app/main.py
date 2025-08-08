@@ -26,6 +26,8 @@ SUDOKU_PROBLEM = [
     [0, 0, 0, 0, 8, 0, 0, 7, 9]
 ]
 
+CONTRACT_ADDRESS = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9'
+
 # --- Helper Functions ---
 
 def get_solution_grid() -> List[List[int]]:
@@ -34,90 +36,94 @@ def get_solution_grid() -> List[List[int]]:
     Initializes it if it doesn't exist.
     """
     if 'solution_grid' not in st.session_state:
-        # Initialize the solution grid as a copy of the problem
         st.session_state.solution_grid = [row[:] for row in SUDOKU_PROBLEM]
     return st.session_state.solution_grid
 
-# --- THE FIX ---
-# This callback correctly handles the dictionary of edits provided by st.data_editor's state.
 def update_session_state():
     """Applies edits from the data_editor back to the main solution_grid in session state."""
-    # st.session_state.sudoku_editor contains a dictionary of edits, not a DataFrame.
     edits = st.session_state.sudoku_editor
-    
-    # The grid to modify is our master copy in the session state.
     grid_to_update = st.session_state.solution_grid
-
-    # Apply any edits the user has made by iterating through the edits dictionary.
     for row, changed_cols in edits.get("edited_rows", {}).items():
         for col_str, new_value in changed_cols.items():
             col = int(col_str)
-            # Ensure the new value is an integer, defaulting to 0 if empty/None.
             grid_to_update[row][col] = int(new_value or 0)
+
+def refresh_winners_list():
+    """Fetches and updates the winners list in the session state."""
+    contract_name = "Zksudoku" # Assuming this is the name of your main contract
+    if 'contract_instance' not in st.session_state:
+        st.session_state.contract_instance = web3_utils.create_contract_instance('zksudoku', CONTRACT_ADDRESS, st.session_state.web3_instance)
+
+    contract = st.session_state.contract_instance
+    if contract:
+        winner_count = contract.functions.winnerCount().call()
+        st.session_state.winners = [contract.functions.winners(i).call() for i in range(winner_count)]
+    else:
+        st.session_state.winners = []
+
 
 # --- Main Application UI ---
 
 st.title("🧩 ZK-Sudoku Race")
 st.markdown("Prove you've solved the Sudoku to win a prize from the smart contract!")
-st.session_state.web3_instance = web3_utils.create_http_provider('http://hardhat:8545')
+
+# Initialize web3 provider and winners list in session state
+if 'web3_instance' not in st.session_state:
+    st.session_state.web3_instance = web3_utils.create_http_provider('http://hardhat:8545')
+if 'winners' not in st.session_state:
+    st.session_state.winners = []
+
 
 # --- Main Layout ---
-col1, col2 = st.columns([2, 1]) # Create a 2/3 and 1/3 column layout
+col1, col2 = st.columns([2, 1])
 
 with col1:
     st.header("The Puzzle")
     st.write("Click directly on the white cells to enter your solution.")
 
-    # Convert the current solution grid to a DataFrame for the editor
     solution = get_solution_grid()
-    
     display_list = [[num if num != 0 else None for num in row] for row in solution]
     df_display = pd.DataFrame(display_list)
+    disabled_df = pd.DataFrame(SUDOKU_PROBLEM) != 0
 
-    # Create a boolean DataFrame to disable editing of the clue cells
-
-    # --- THE NEW EDITABLE GRID ---
-    # Use st.data_editor to create an interactive, editable grid.
     st.data_editor(
         df_display,
         use_container_width=True,
         height=500,
+        disabled=disabled_df,
         key="sudoku_editor",
-        # Use the on_change callback to reliably save edits.
         on_change=update_session_state
     )
 
 with col2:
     st.header("Your Status")
-
-    # --- Display Winners & Contract Info (Placeholder) ---
+    st.button("Refresh Winners", on_click=refresh_winners_list)
     st.subheader("🏆 Winners")
-    st.text("1. 0x123...abc (Still open!)")
-    st.text("2. 0x456...def (Still open!)")
-    st.text("3. 0x789...ghi (Still open!)")
+    
+    # Display winners from session state
+    if st.session_state.winners:
+        for i, winner in enumerate(st.session_state.winners):
+            st.text(f"#{i+1}: {winner}")
+    else:
+        st.text("No winners yet. Be the first!")
 
     st.divider()
 
-    # --- Submission Section ---
     st.subheader("Submit Your Solution")
-    st.text_input("Contract Address", key="contract_address")
-    st.text_input("Account Index", key="account_index")
+    account_index = st.number_input("Select Your Account Index", min_value=0, max_value=9, step=1, key="account_index")
     
     if st.button("Generate Proof & Submit to Contract", type="primary"):
         solution_grid = get_solution_grid()
         
         st.write("Submitting the following solution:")
-        # Display the final solution for confirmation
         st.json(solution_grid)
         
-        
-        with st.spinner("Generating proof... this may take a moment."):
-            # --- TODO: INTEGRATION POINT ---
-            # 1. Add a check here to verify the solution is complete and valid first.
-            # 2. Call your zokrates_utils to generate the proof using the `solution_grid`.
-            # 3. Call your web3_utils to parse the proof and call the smart contract.
-            # 4. Handle the success or failure response.
-            zksudoku_dict = [
+        try:
+            with st.spinner("Generating proof... this may take a moment."):
+                # 1. Create the JSON input for ZoKrates using the current grid state
+                
+                # 2. Generate the proof
+                zksudoku_dict = [
                 [
                     [5, 3, 4, 6, 7, 8, 9, 1, 2],
                     [6, 7, 2, 1, 9, 5, 3, 4, 8],
@@ -140,16 +146,17 @@ with col2:
                     [0, 0, 0, 4, 1, 9, 0, 0, 5],
                     [0, 0, 0, 0, 8, 0, 0, 7, 9]
                 ]]
-            zksudoku_string_dict = [[[str(num) for num in row] for row in grid] for grid in zksudoku_dict]
-            zokrates_utils.generate_proof_from_json_input('zksudoku', json.dumps(zksudoku_string_dict))
-            w3 = st.session_state.web3_instance
-            contract_instance = web3_utils.create_contract_instance('zksudoku', st.session_state.contract_address, w3)
-            print(contract_instance)
-            (proof, inputs) = zokrates_utils.parse_proof('zksudoku')
-            account_index = int(st.session_state.account_index)
-            tx_hash = contract_instance.functions.submitSolution(proof, inputs).transact({"from":w3.eth.accounts[account_index]})
-            submit_tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-            st.text(str(submit_tx_receipt))
-            st.success("Proof generated and transaction submitted successfully! (Placeholder)")
-            # st.error("Proof verification failed! (Placeholder)")
+                zksudoku_string_dict = [[[str(num) for num in row] for row in grid] for grid in zksudoku_dict]
+                zokrates_utils.generate_proof_from_json_input('zksudoku', json.dumps(zksudoku_string_dict))
+                w3 = st.session_state.web3_instance
+                contract_instance = web3_utils.create_contract_instance('zksudoku', CONTRACT_ADDRESS, w3)
+                print(contract_instance)
+                (proof, inputs) = zokrates_utils.parse_proof('zksudoku')
+                account_index = int(st.session_state.account_index)
+                tx_hash = contract_instance.functions.submitSolution(proof, inputs).transact({"from":w3.eth.accounts[account_index]})
+                submit_tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+                st.text(str(submit_tx_receipt))
+                st.success("Proof generated and transaction submitted successfully! (Placeholder)")
 
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
