@@ -19,7 +19,7 @@ This project is configured to run in a VS Code Dev Container, which creates a co
 ### Prerequisites
 
 1.  **Git:** [Download & Install Git](https://git-scm.com/downloads)
-2.  **Docker Desktop:** [Download & Install Docker](https://www.docker.com/products/docker-desktop/)
+2.  **Docker Desktop:** [Download & Install Docker](https://www.docker.com/products/docker-desktop/) (make sure it's running!)
 3.  **VS Code:** [Download & Install VS Code](https://code.visualstudio.com/)
 4.  **VS Code Dev Containers Extension:** Install this from the VS Code Marketplace.
 
@@ -41,9 +41,15 @@ This project is configured to run in a VS Code Dev Container, which creates a co
 
     VS Code will now build the Docker containers and set up the entire development environment for you. This may take a few minutes on the first run.
 
-4.  **Run the Application:**
-    Once the container is built and you are inside the dev environment, open a new terminal in VS Code (`Ctrl+Shift+\``) and run the application:
-    ```bash
-    docker-compose up
-    ```
-    You can then access the Streamlit web app at **http://localhost:8501**.
+---
+
+## How to Run
+
+Once the container is built and you are inside the dev environment, you can run the application or the tests.
+
+### Running the Tests (Recommended First Step)
+
+To ensure your entire environment is configured correctly, run the end-to-end test suite. Open a new terminal in VS Code (`Ctrl+Shift+\``) and run:
+
+```bash
+python -m unittest tests/test_full_flow.py
