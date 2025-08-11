@@ -27,7 +27,7 @@ This project is configured to run in a VS Code Dev Container, which creates a co
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/zkSudoku.git](https://github.com/your-username/zkSudoku.git)
+    git clone https://github.com/christopherwira/zkSudoku.git
     ```
 
 2.  **Open the project in VS Code:**
